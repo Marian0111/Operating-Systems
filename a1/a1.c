@@ -74,23 +74,129 @@ void list(int op_recursive, off_t op_size_smaller, char* op_permission, const ch
 void parse(const char *filePath)
 {
 	int fd = -1;
-	char buff[100] = "";
+	char magic[10];
 	fd = open(filePath, O_RDONLY);
 	if(fd == -1){
-		printf("ERROR\nFisierul nu a putut fi deschis\n");
+		printf("ERROR\nFisierul nu a putut fi deschis");
 	}else{
-		read(fd, buff, 100 * sizeof(char));
-		printf("%s\n", buff);
-		/*char buff2[10] = "";
-		strcpy(buff, "");
-		read(fd, buff2, 4 * sizeof(char));
-		printf("%s\n", buff2);
-		read(fd, buff, 2 * sizeof(char));
-		if(atoi(buff) >= 35 && atoi(buff) <= 104)
+		read(fd, magic, 4);
+		magic[4]= 0;
+		if(strcmp(magic, "vumv") != 0)
 		{
-			printf("%d", atoi(buff));
+			printf("ERROR\nwrong magic");
+		}else{
+			int size = 0, version = 0;
+			read(fd, &size, 2);
+			read(fd, &version, 2);
+			if(version < 35 || version > 104)
+			{
+				printf("ERROR\nwrong version");
+			}else{
+				int nr_sections = 0;
+				read(fd, &nr_sections, 1);
+				if(nr_sections < 3 || nr_sections > 13)
+				{
+					printf("ERROR\nwrong sect_nr");
+				}else{
+					char name[13][10];
+					int type[13];
+					int size[13];
+					for(int i = 0; i < nr_sections; i++)
+					{
+						char name_aux[10];
+						int type_aux;
+						int size_aux;
+						size_t s = read(fd, name_aux, 9);
+						name_aux[s] = 0;
+						read(fd, &type_aux, 2);
+						lseek(fd, 4, SEEK_CUR);
+						read(fd, &size_aux, 4);
+						if(type_aux != 11 && type_aux != 58 && type_aux != 76)
+						{
+							printf("ERROR\nwrong sect_types");
+							close(fd);
+							return;
+						}
+						strcpy(name[i], name_aux);
+						type[i] = type_aux;
+						size[i] = size_aux;
+					}
+					printf("SUCCESS\n");
+					printf("version=%d\n", version);
+					printf("nr_sections=%d\n", nr_sections);
+					for(int i = 0; i < nr_sections; i++)
+					{
+						printf("section%d: %s %d %d\n", i+1, name[i], type[i], size[i]);
+					}
+				}
+			}
 		}
-		printf("%s\n", buff);*/
+		
+	}
+	close(fd);
+}
+
+void extract(const char *filePath, int section, int line)
+{
+	int fd = -1;
+	fd = open(filePath, O_RDONLY);
+	if(fd == -1){
+		printf("ERROR\ninvalid file");
+	}else{
+		int nr_sections = 0;
+		lseek(fd, 8, SEEK_CUR);
+		read(fd, &nr_sections, 1);
+		if(nr_sections < section)
+		{
+			printf("ERROR\ninvalid section");
+		}else{
+			for(int i = 1; i < section; i++)
+				lseek(fd, 19, SEEK_CUR);
+			lseek(fd, 11, SEEK_CUR);
+			int offset = 0, size = 0;
+			read(fd, &offset, 4);
+			read(fd, &size, 4);
+			int nr_linie = 1;
+			int nr_caractere = 0;
+			lseek(fd, offset, SEEK_SET);
+			while(nr_caractere < size)
+			{
+				char b;
+				read(fd, &b, 1);
+				nr_caractere++;
+				if(b == '\n')
+					nr_linie++;
+			}
+			if(nr_linie < line)
+			{
+				printf("ERROR\ninvalid line");
+			}else{
+				printf("SUCCESS\n");
+				lseek(fd, offset, SEEK_SET);
+				int linie_afisare = nr_linie - line + 1;
+				nr_linie = 1;
+				int nr_caractere = 0;
+				while(nr_linie < linie_afisare)
+				{
+					char b;
+					read(fd, &b, 1);
+					nr_caractere++;
+					if(b == '\n')
+						nr_linie++;
+				}
+				while(nr_caractere < size)
+				{
+					char b;
+					read(fd, &b, 1);
+					nr_caractere++;
+					if(b != '\n')
+						printf("%c", b);
+					else{
+						break;
+					}
+				}
+			}
+		}
 	}
 	close(fd);
 }
@@ -128,6 +234,8 @@ int main(int argc, char **argv)
         		free(perm);
         	}else if(strcmp(argv[1], "parse") == 0){
         		parse(argv[2] + 5);
+        	}else if(strcmp(argv[1], "extract") == 0){
+        		extract(argv[2] + 5, atoi(argv[3] + 8), atoi(argv[4] + 5));
         	}
     	}
     	return 0;
