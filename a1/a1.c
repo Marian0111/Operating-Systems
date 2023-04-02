@@ -101,7 +101,7 @@ void parse(const char *filePath)
 					int size[13];
 					for(int i = 0; i < nr_sections; i++)
 					{
-						char name_aux[10];
+						char name_aux[10] = "";
 						int type_aux = 0;
 						int size_aux = 0;
 						size_t s = read(fd, name_aux, 9);
@@ -240,8 +240,8 @@ void findall(const char *dirPath, int first)
 										for(int i = 0; i < nr_sections; i++)
 										{
 											lseek(fd, 9, SEEK_CUR);
-											int type_aux;
-											int size_aux;
+											int type_aux = 0;
+											int size_aux = 0;
 											read(fd, &type_aux, 2);
 											lseek(fd, 4, SEEK_CUR);
 											read(fd, &size_aux, 4);
