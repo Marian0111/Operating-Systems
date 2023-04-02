@@ -201,6 +201,81 @@ void extract(const char *filePath, int section, int line)
 	close(fd);
 }
 
+void findall(const char *dirPath, int *first)
+{
+	DIR *dir = NULL;
+    	struct dirent *entry = NULL;
+    	char filePath[1024];
+    	struct stat statbuf;
+    	dir = opendir(dirPath);
+    	if(dir == NULL) {
+        	printf("ERROR\ninvalid directory path\n");
+    	}
+    	else{
+    		if(*first != 0){
+    			printf("SUCCESS\n");
+    			*first = 0;
+    		}
+    		while((entry = readdir(dir)) != NULL) {
+    			if(strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0){
+    				snprintf(filePath, 512, "%s/%s", dirPath, entry->d_name);
+    				if(lstat(filePath, &statbuf) == 0) {
+            				if(S_ISDIR(statbuf.st_mode)){
+                				findall(filePath, first);
+            				}else{
+                				int fd = -1;
+						char magic[10];
+						fd = open(filePath, O_RDONLY);
+						if(fd != -1)
+						{
+							read(fd, magic, 4);
+							magic[4]= 0;
+							if(strcmp(magic, "vumv") == 0)
+							{
+								int size = 0, version = 0;
+								read(fd, &size, 2);
+								read(fd, &version, 2);
+								if(version >= 35 && version <= 104)
+								{
+									int nr_sections = 0;
+									read(fd, &nr_sections, 1);
+									if(nr_sections >= 3 && nr_sections <= 13)
+									{
+	    									int ok = 1;
+										for(int i = 0; i < nr_sections; i++)
+										{
+											lseek(fd, 9, SEEK_CUR);
+											int type_aux;
+											int size_aux;
+											read(fd, &type_aux, 2);
+											lseek(fd, 4, SEEK_CUR);
+											read(fd, &size_aux, 4);
+											if(type_aux != 11 && type_aux != 58 && type_aux != 76)
+											{
+												close(fd);
+												closedir(dir);
+												return;
+											}
+											if(size_aux > 1043){
+												ok = 0;
+												break;
+											}
+										}
+										if(ok)
+											printf("%s\n", filePath);
+									}
+								}
+							}
+						}
+						close(fd);
+					}
+				}
+			}
+		}
+    	}
+    	closedir(dir);
+}
+
 int main(int argc, char **argv)
 {
 	if(argc >= 2){
@@ -236,6 +311,9 @@ int main(int argc, char **argv)
         		parse(argv[2] + 5);
         	}else if(strcmp(argv[1], "extract") == 0){
         		extract(argv[2] + 5, atoi(argv[3] + 8), atoi(argv[4] + 5));
+        	}else if(strcmp(argv[1], "findall") == 0){
+        		int first = 1;
+        		findall(argv[2] + 5, &first);
         	}
     	}
     	return 0;
