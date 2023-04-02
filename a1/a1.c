@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 
-void list(int op_recursive, off_t op_size_smaller, char* op_permission, const char *dirPath, int *first)
+void list(int op_recursive, off_t op_size_smaller, char* op_permission, const char *dirPath, int first)
 {
 	DIR *dir = NULL;
     	struct dirent *entry = NULL;
@@ -32,10 +32,8 @@ void list(int op_recursive, off_t op_size_smaller, char* op_permission, const ch
         	printf("ERROR\nNu se poate deschide directorul");
     	}
     	else{
-    		if(*first != 0){
+    		if(first != 0)
     			printf("SUCCESS\n");
-    			*first = 0;
-    		}
     		while((entry = readdir(dir)) != NULL) {
     			snprintf(filePath, 512, "%s/%s", dirPath, entry->d_name);
     			if(lstat(filePath, &statbuf) == 0) {
@@ -61,7 +59,7 @@ void list(int op_recursive, off_t op_size_smaller, char* op_permission, const ch
                 					printf("%s\n",filePath);
                 				}
                 				if(op_recursive == 1){
-                					list(op_recursive, op_size_smaller, op_permission, filePath, first);
+                					list(op_recursive, op_size_smaller, op_permission, filePath, 0);
                 				}
                 			}
             			}
@@ -77,7 +75,7 @@ void parse(const char *filePath)
 	char magic[10];
 	fd = open(filePath, O_RDONLY);
 	if(fd == -1){
-		printf("ERROR\nFisierul nu a putut fi deschis");
+		printf("ERROR\nthe file could not be opened");
 	}else{
 		read(fd, magic, 4);
 		magic[4]= 0;
@@ -104,8 +102,8 @@ void parse(const char *filePath)
 					for(int i = 0; i < nr_sections; i++)
 					{
 						char name_aux[10];
-						int type_aux;
-						int size_aux;
+						int type_aux = 0;
+						int size_aux = 0;
 						size_t s = read(fd, name_aux, 9);
 						name_aux[s] = 0;
 						read(fd, &type_aux, 2);
@@ -150,8 +148,7 @@ void extract(const char *filePath, int section, int line)
 		{
 			printf("ERROR\ninvalid section");
 		}else{
-			for(int i = 1; i < section; i++)
-				lseek(fd, 19, SEEK_CUR);
+			lseek(fd, 19 * (section -1), SEEK_CUR);
 			lseek(fd, 11, SEEK_CUR);
 			int offset = 0, size = 0;
 			read(fd, &offset, 4);
@@ -175,7 +172,7 @@ void extract(const char *filePath, int section, int line)
 				lseek(fd, offset, SEEK_SET);
 				int linie_afisare = nr_linie - line + 1;
 				nr_linie = 1;
-				int nr_caractere = 0;
+				nr_caractere = 0;
 				while(nr_linie < linie_afisare)
 				{
 					char b;
@@ -201,7 +198,7 @@ void extract(const char *filePath, int section, int line)
 	close(fd);
 }
 
-void findall(const char *dirPath, int *first)
+void findall(const char *dirPath, int first)
 {
 	DIR *dir = NULL;
     	struct dirent *entry = NULL;
@@ -212,16 +209,14 @@ void findall(const char *dirPath, int *first)
         	printf("ERROR\ninvalid directory path\n");
     	}
     	else{
-    		if(*first != 0){
+    		if(first != 0)
     			printf("SUCCESS\n");
-    			*first = 0;
-    		}
     		while((entry = readdir(dir)) != NULL) {
     			if(strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0){
     				snprintf(filePath, 1024, "%s/%s", dirPath, entry->d_name);
     				if(lstat(filePath, &statbuf) == 0) {
             				if(S_ISDIR(statbuf.st_mode)){
-                				findall(filePath, first);
+                				findall(filePath, 0);
             				}else{
                 				int fd = -1;
 						char magic[10];
@@ -278,43 +273,90 @@ void findall(const char *dirPath, int *first)
 
 int main(int argc, char **argv)
 {
-	if(argc >= 2){
+    	if(argc >= 2){
         	if(strcmp(argv[1], "variant") == 0){
             		printf("36001\n");
-        	}else if(strcmp(argv[1], "list") == 0){
-        		int first = 1;
-        		int r = 0;
-        		off_t sz = 0;
-        		char* perm = malloc(512*sizeof(char));
-        		for(int i = 2; i < argc - 1; i++){
-        			if(strcmp(argv[i], "recursive") == 0)
-        				r = 1;
-        			else{
-        				char* opt = malloc(512*sizeof(char));
-        				strncpy(opt, argv[i], 12);
-        				if(strcmp(opt, "size_smaller") == 0)
-        					sz = atoi(argv[i] + 13);
-        				else if(strcmp(opt, "permissions=") == 0){
-        					strcpy(perm, argv[i] + 12);
-        				}else{ 
-        					perror("ERROR\nOptiune invalida!");
-        					free(opt);
-        					free(perm);
-        					return 0;
-        				}
-        				free(opt);
-        			}
+        	}else{
+        		char function[20] = "";
+        		for(int i = 1; i < argc; i++){
+        			if(strcmp(argv[i],"list") == 0)
+        				strcpy(function, "list");
+        			else if(strcmp(argv[i],"parse") == 0)
+        				strcpy(function, "parse");
+        			else if(strcmp(argv[i],"extract") == 0)
+        				strcpy(function, "extract");
+        			else if(strcmp(argv[i],"findall") == 0)
+        				strcpy(function, "findall");
+        			if(strcmp(function, "") != 0)
+        				break;
         		}
-        		list(r, sz, perm, argv[argc-1] + 5, &first);
-        		free(perm);
-        	}else if(strcmp(argv[1], "parse") == 0){
-        		parse(argv[2] + 5);
-        	}else if(strcmp(argv[1], "extract") == 0){
-        		extract(argv[2] + 5, atoi(argv[3] + 8), atoi(argv[4] + 5));
-        	}else if(strcmp(argv[1], "findall") == 0){
-        		int first = 1;
-        		findall(argv[2] + 5, &first);
+        		if(strcmp(function, "") == 0){
+        			perror("ERROR\ninvalid function!");
+        		}else if(strcmp(function, "list") == 0){
+				int r = 0;
+				off_t size = 0;
+				char perm[20] = "";
+				char path[1024] = "";
+        			for(int i = 1; i < argc; i++){
+        				if(strcmp(argv[i], "recursive") == 0)
+						r = 1;
+					else if(strncmp(argv[i], "size_smaller", 12) == 0 && size == 0)
+						size = atoi(argv[i] + 13);
+					else if(strncmp(argv[i], "permissions", 11) == 0 && strcmp(perm, "") == 0)
+						strcpy(perm, argv[i] + 12);
+					else if(strncmp(argv[i], "path", 4) == 0 && strcmp(path, "") == 0)
+						strcpy(path, argv[i] + 5);
+					else if(strcmp(argv[i], "list") != 0)
+					{
+						perror("ERROR\ninvalid list!");
+						return 0;
+					}
+        			}
+        			list(r, size, perm, path, 1);
+        		}else if(strcmp(function, "parse") == 0){
+        			char path[1024] = "";
+        			for(int i = 1; i < argc; i++){
+        				if(strncmp(argv[i], "path", 4) == 0 && strcmp(path, "") == 0)
+						strcpy(path, argv[i] + 5);
+					else if(strcmp(argv[i], "parse") != 0)
+					{
+						perror("ERROR\ninvalid parse!");
+						return 0;
+					}
+        			}
+        			parse(path);
+        		}else if(strcmp(function, "extract") == 0){
+        			char path[1024] = "";
+        			int section = 0;
+        			int line = 0;
+        			for(int i = 1; i < argc; i++){
+        				if(strncmp(argv[i], "section", 7) == 0 && section == 0)
+        					section = atoi(argv[i] + 8);
+        				else if(strncmp(argv[i], "line", 4) == 0 && line == 0)
+        					line = atoi(argv[i] + 5);
+        				else if(strncmp(argv[i], "path", 4) == 0 && strcmp(path, "") == 0)
+						strcpy(path, argv[i] + 5);
+					else if(strcmp(argv[i], "extract") != 0)
+					{
+						perror("ERROR\ninvalid extract!");
+						return 0;
+					}
+        			}
+        			extract(path, section, line);
+        		}else if(strcmp(function, "findall") == 0){
+        			char path[1024] = "";
+        			for(int i = 1; i < argc; i++){
+        				if(strncmp(argv[i], "path", 4) == 0 && strcmp(path, "") == 0)
+						strcpy(path, argv[i] + 5);
+					else if(strcmp(argv[i], "findall") != 0)
+					{
+						perror("ERROR\ninvalid findall!");
+						return 0;
+					}
+        			}
+        			findall(path, 1);
+        		}
         	}
-    	}
+        }
     	return 0;
 }
