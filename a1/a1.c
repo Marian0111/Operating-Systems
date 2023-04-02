@@ -218,7 +218,7 @@ void findall(const char *dirPath, int *first)
     		}
     		while((entry = readdir(dir)) != NULL) {
     			if(strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0){
-    				snprintf(filePath, 512, "%s/%s", dirPath, entry->d_name);
+    				snprintf(filePath, 1024, "%s/%s", dirPath, entry->d_name);
     				if(lstat(filePath, &statbuf) == 0) {
             				if(S_ISDIR(statbuf.st_mode)){
                 				findall(filePath, first);
