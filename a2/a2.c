@@ -12,60 +12,41 @@
 
 typedef struct {
     int id;
-} TH_STRUCT2;  
+} TH_STRUCT;  		
 
-typedef struct {
-    int id;
-} TH_STRUCT3;   
-
-typedef struct {
-    int id;
-} TH_STRUCT4;   		
-
-sem_t sem3_in;
-sem_t sem3_out;
 sem_t sem2;
-sem_t sem4_in;
-sem_t sem4_out;
+sem_t sem4;
+
+pthread_mutex_t lock3_3;
+pthread_mutex_t lock3_5;
+pthread_mutex_t lock4;
 
 int nrThreads = 0;
-int note3_in = 0;
-int note3_out = 0;
 int note4 = 0;
+int note3_2 = 0;
+int note2_4 = 0;
 
 void *process2_thread_function(void* arg){
-	TH_STRUCT2 *ts2 = (TH_STRUCT2 *)arg;
-	
+	TH_STRUCT *ts2 = (TH_STRUCT *)arg;
     	info(BEGIN, 2, ts2->id);
     	info(END, 2, ts2->id);
     	return NULL;
 }
 
 void *process3_thread_function(void* arg){
-	TH_STRUCT3 *ts3 = (TH_STRUCT3 *)arg;
-	if(ts3->id == 5 || ts3->id == 3){
-		sem_wait(&sem3_in);
-		if(ts3->id == 5){
-			info(BEGIN, 3, ts3->id);
-			note3_in = 1;
-		}
-		else{
-		while(note3_in == 0){
-		}
+	TH_STRUCT *ts3 = (TH_STRUCT *)arg;
+	if(ts3->id == 5){
 		info(BEGIN, 3, ts3->id);
-		}
-    		sem_post(&sem3_in);
-    		sem_wait(&sem3_out);
-		if(ts3->id == 3){
-			info(END, 3, ts3->id);
-			note3_out = 1;
-		}
-		else{
-		while(note3_out == 0){
-		}
+		pthread_mutex_unlock(&lock3_3);
+		pthread_mutex_lock(&lock3_5);
 		info(END, 3, ts3->id);
-		}
-    		sem_post(&sem3_out);
+		pthread_mutex_unlock(&lock3_5);
+	}else if(ts3->id == 3){
+		pthread_mutex_lock(&lock3_3);
+		info(BEGIN, 3, ts3->id);
+    		info(END, 3, ts3->id);
+		pthread_mutex_unlock(&lock3_5);
+		pthread_mutex_unlock(&lock3_3);
 	}else{
 		info(BEGIN, 3, ts3->id);
     		info(END, 3, ts3->id);
@@ -74,21 +55,25 @@ void *process3_thread_function(void* arg){
 }
 
 void *process4_thread_function(void* arg){
-	TH_STRUCT4 *ts4 = (TH_STRUCT4 *)arg;
-    	sem_wait(&sem4_in);
+	TH_STRUCT *ts4 = (TH_STRUCT *)arg;
+    	sem_wait(&sem4);
     	info(BEGIN, 4, ts4->id);
 	nrThreads++;
-	/*if(nrThreads == 4){
-		if(ts4->id == 15){
-			note4 = 1;
-		}
-	}else{
-		while(note4 == 0){
-		}
-	}*/
+	if(note4 == 0){
+	pthread_mutex_lock(&lock4);
+	while(note4 == 0 && nrThreads != 4){
+	}
+	if(ts4->id == 15){
+		note4 = 1;
+	}
 	info(END, 4, ts4->id);
 	nrThreads--;
-	sem_post(&sem4_in);
+	pthread_mutex_unlock(&lock4);
+	}else{
+	info(END, 4, ts4->id);
+	nrThreads--;
+	}
+	sem_post(&sem4);
     	return NULL;
 }
 
@@ -106,7 +91,7 @@ int main(int argc, char **argv){
     		info(BEGIN, 2, 0);
     		
     		pthread_t tid2[6];
-    		TH_STRUCT2 ts2[6];
+    		TH_STRUCT ts2[6];
     		
     		if(sem_init(&sem2, 0, 1) != 0) {
         		perror("Could not init the semaphore");
@@ -136,16 +121,18 @@ int main(int argc, char **argv){
     		info(BEGIN, 3, 0);
  
     		pthread_t tid3[6];
-    		TH_STRUCT3 ts3[6];
+    		TH_STRUCT ts3[6];
     		
-    		if(sem_init(&sem3_in, 0, 2) != 0) {
-        		perror("Could not init the semaphore");
+    		if(pthread_mutex_init(&lock3_3, NULL) != 0) {
+        		perror("Could not init the mutex");
         		return -1;
     		}
-    		if(sem_init(&sem3_out, 0, 2) != 0) {
-        		perror("Could not init the semaphore");
+    		if(pthread_mutex_init(&lock3_5, NULL) != 0) {
+        		perror("Could not init the mutex");
         		return -1;
     		}
+    		pthread_mutex_lock(&lock3_3);
+    		pthread_mutex_lock(&lock3_5);
     		
     		for(int p3i = 1; p3i <= 5; p3i++){
     			ts3[p3i].id = p3i;
@@ -158,8 +145,8 @@ int main(int argc, char **argv){
         		pthread_join(tid3[p3i], NULL);
     		}
     		
-    		sem_destroy(&sem3_in);
-    		sem_destroy(&sem3_out);
+    		pthread_mutex_destroy(&lock3_3);
+    		pthread_mutex_destroy(&lock3_5);
     		
     		NrOfProcesses++;
     		P5 = fork();
@@ -216,14 +203,14 @@ int main(int argc, char **argv){
     		info(BEGIN, 4, 0);
     		
     		pthread_t tid4[43];
-    		TH_STRUCT3 ts4[43];
+    		TH_STRUCT ts4[43];
     		
-    		if(sem_init(&sem4_in, 0, 4) != 0) {
+    		if(sem_init(&sem4, 0, 4) != 0) {
         		perror("Could not init the semaphore");
         		return -1;
     		}
-    		if(sem_init(&sem4_out, 0, 1) != 0) {
-        		perror("Could not init the semaphore");
+    		if(pthread_mutex_init(&lock4, NULL) != 0) {
+        		perror("Could not init the mutex");
         		return -1;
     		}
     		
@@ -238,8 +225,8 @@ int main(int argc, char **argv){
         		pthread_join(tid4[p4i], NULL);
     		}
     		
-    		sem_destroy(&sem4_in);
-    		sem_destroy(&sem4_out);
+    		pthread_mutex_destroy(&lock4);
+    		sem_destroy(&sem4);
     		
     		info(END, 4, 0);
     		exit(0);
