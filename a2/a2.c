@@ -11,10 +11,9 @@
 #include "a2_helper.h"
 
 typedef struct {
-    int id;
+    	int id;
 } TH_STRUCT;  		
 
-sem_t sem2;
 sem_t sem4;
 
 pthread_mutex_t lock3_3;
@@ -26,10 +25,58 @@ int note4 = 0;
 int note3_2 = 0;
 int note2_4 = 0;
 
+int thread15_in = 0;
+int thread15_out = 0;
+
+void *process2_3_synchronised(int process, int thread)
+{
+	sem_t* sem2_in = NULL;
+	sem_t* sem2_out = NULL;
+	
+	sem2_in = sem_open("/P2_and_P3_semaphore_in", O_CREAT, 0644, 0);
+    	if(sem2_in == NULL) {
+		perror("Could not aquire the semaphore");
+	}
+	
+	sem2_out = sem_open("/P2_and_P3_semaphore_out", O_CREAT, 0644, 0);
+    	if(sem2_out == NULL) {
+		perror("Could not aquire the semaphore");
+	}
+	if(process == 2 && thread == 5){
+		info(BEGIN, process, thread);
+		info(END, process, thread);
+		sem_post(sem2_in);
+	}
+	
+	if(process == 3 && thread == 2){
+		sem_wait(sem2_in);
+		printf("INAINTE\n");
+		info(BEGIN, process, thread);
+		info(END, process, thread);
+		printf("DUPA\n");
+		sem_post(sem2_out);
+	}
+	
+	if(process == 2 && thread == 4){
+		sem_wait(sem2_out);
+		info(BEGIN, process, thread);
+		info(END, process, thread);
+	}
+	
+    	sem_close(sem2_in);
+    	sem_close(sem2_out);
+    	
+    	return NULL;
+}
+
 void *process2_thread_function(void* arg){
 	TH_STRUCT *ts2 = (TH_STRUCT *)arg;
-    	info(BEGIN, 2, ts2->id);
-    	info(END, 2, ts2->id);
+	if(ts2->id == 4 || ts2->id == 5){
+		process2_3_synchronised(2, ts2->id);
+	}else{
+		info(BEGIN, 2, ts2->id);
+    		info(END, 2, ts2->id);
+    	}
     	return NULL;
 }
 
@@ -47,6 +94,8 @@ void *process3_thread_function(void* arg){
     		info(END, 3, ts3->id);
 		pthread_mutex_unlock(&lock3_5);
 		pthread_mutex_unlock(&lock3_3);
+	}else if(ts3->id == 2){
+		process2_3_synchronised(3, ts3->id);
 	}else{
 		info(BEGIN, 3, ts3->id);
     		info(END, 3, ts3->id);
@@ -57,21 +106,27 @@ void *process3_thread_function(void* arg){
 void *process4_thread_function(void* arg){
 	TH_STRUCT *ts4 = (TH_STRUCT *)arg;
     	sem_wait(&sem4);
-    	info(BEGIN, 4, ts4->id);
-	nrThreads++;
-	if(note4 == 0){
+	info(BEGIN, 4, ts4->id);
 	pthread_mutex_lock(&lock4);
-	while(note4 == 0 && nrThreads != 4){
-	}
-	if(ts4->id == 15){
-		note4 = 1;
-	}
-	info(END, 4, ts4->id);
-	nrThreads--;
-	pthread_mutex_unlock(&lock4);
+	nrThreads++;
+	if(nrThreads < 39 && ts4->id != 15){
+		info(END, 4, ts4->id);
+		pthread_mutex_unlock(&lock4);
 	}else{
-	info(END, 4, ts4->id);
-	nrThreads--;
+		pthread_mutex_unlock(&lock4);
+		pthread_mutex_lock(&lock4);
+		if(thread15_out == 0){
+			info(END, 4, 15);
+			thread15_out = ts4->id;
+		}else{
+			while(thread15_out == 0){}
+			if(ts4->id == 15){
+				info(END, 4, thread15_out);
+			}else{
+				info(END, 4, ts4->id);
+			}
+		}
+		pthread_mutex_unlock(&lock4);
 	}
 	sem_post(&sem4);
     	return NULL;
@@ -93,11 +148,6 @@ int main(int argc, char **argv){
     		pthread_t tid2[6];
     		TH_STRUCT ts2[6];
     		
-    		if(sem_init(&sem2, 0, 1) != 0) {
-        		perror("Could not init the semaphore");
-        		return -1;
-    		}
-    		
     		for(int p2i = 1; p2i <= 5; p2i++){
     			ts2[p2i].id = p2i;
         		if(pthread_create(&tid2[p2i], NULL, process2_thread_function, &ts2[p2i]) != 0){
@@ -108,8 +158,6 @@ int main(int argc, char **argv){
     		for(int p2i = 1; p2i <= 5; p2i++){
         		pthread_join(tid2[p2i], NULL);
     		}
-    		
-    		sem_destroy(&sem2);
     		
     		info(END, 2, 0);
     		exit(0);
@@ -238,6 +286,8 @@ int main(int argc, char **argv){
     	NrOfProcesses--;
     	waitpid(P4, &waitstatus4, 0);
     	NrOfProcesses--;
+    	
+    	
     	info(END, 1, 0);
     	
     	return 0;
