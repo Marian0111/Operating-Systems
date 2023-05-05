@@ -28,6 +28,7 @@ int note2_4 = 0;
 
 int thread15_in = 0;
 int thread15_out = 0;
+int totalThreads = 0;
 
 void *process2_3_synchronised(int process, int thread)
 {
@@ -105,7 +106,7 @@ void *process3_thread_function(void* arg){
 void *process4_thread_function(void* arg){
 	TH_STRUCT *ts4 = (TH_STRUCT *)arg;
 	
-    	sem_wait(&sem4);
+    	/*sem_wait(&sem4);
 	info(BEGIN, 4, ts4->id);
 	pthread_mutex_lock(&lock4);
 	nrThreads++;
@@ -128,33 +129,40 @@ void *process4_thread_function(void* arg){
 		}
 		pthread_mutex_unlock(&lock4);
 	}
-	sem_post(&sem4);
+	sem_post(&sem4);*/
 	
-	/*sem_wait(&sem4);
+	sem_wait(&sem4);
 	
 	info(BEGIN, 4, ts4->id);
     	nrThreads++;
 	
     	pthread_mutex_lock(&lock4);
+    	totalThreads++;
     	if(nrThreads == 4)
-    		pthread_cond_broadcast(&cond4);
+    		pthread_cond_signal(&cond4);
     	pthread_mutex_unlock(&lock4);
-        printf("PRINTTTTT %d\n", nrThreads);
     	pthread_mutex_lock(&lock4);
+        printf("PRINTTTTT %d\n", totalThreads);
     	if (ts4->id == 15) {
+    		thread15_out = 1;
         	while (nrThreads != 4) {
             		pthread_cond_wait(&cond4, &lock4);
         	}
         	info(END, 4, ts4->id);
+        	thread15_out = 2;
+        	totalThreads++;
+        	pthread_cond_broadcast(&cond4);
         	nrThreads--;
     	}else{
-    		
+    		while (thread15_out == 1 || (39 <= totalThreads && totalThreads <= 42 && thread15_out == 0)) {
+            		pthread_cond_wait(&cond4, &lock4);
+        	}
         	info(END, 4, ts4->id);
     		nrThreads--;
     	}
     	pthread_mutex_unlock(&lock4);
     	
-    	sem_post(&sem4);*/
+    	sem_post(&sem4);
     	
     	return NULL;
 }
