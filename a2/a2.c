@@ -106,43 +106,17 @@ void *process3_thread_function(void* arg){
 void *process4_thread_function(void* arg){
 	TH_STRUCT *ts4 = (TH_STRUCT *)arg;
 	
-    	/*sem_wait(&sem4);
-	info(BEGIN, 4, ts4->id);
-	pthread_mutex_lock(&lock4);
-	nrThreads++;
-	if(nrThreads < 39 && ts4->id != 15){
-		info(END, 4, ts4->id);
-		pthread_mutex_unlock(&lock4);
-	}else{
-		pthread_mutex_unlock(&lock4);
-		pthread_mutex_lock(&lock4);
-		if(thread15_out == 0){
-			info(END, 4, 15);
-			thread15_out = ts4->id;
-		}else{
-			while(thread15_out == 0){}
-			if(ts4->id == 15){
-				info(END, 4, thread15_out);
-			}else{
-				info(END, 4, ts4->id);
-			}
-		}
-		pthread_mutex_unlock(&lock4);
-	}
-	sem_post(&sem4);*/
-	
 	sem_wait(&sem4);
 	
 	info(BEGIN, 4, ts4->id);
     	nrThreads++;
 	
     	pthread_mutex_lock(&lock4);
-    	totalThreads++;
     	if(nrThreads == 4)
     		pthread_cond_signal(&cond4);
     	pthread_mutex_unlock(&lock4);
     	pthread_mutex_lock(&lock4);
-        printf("PRINTTTTT %d\n", totalThreads);
+    	totalThreads++;
     	if (ts4->id == 15) {
     		thread15_out = 1;
         	while (nrThreads != 4) {
