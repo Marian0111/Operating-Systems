@@ -19,6 +19,7 @@ sem_t sem4;
 pthread_mutex_t lock3_3;
 pthread_mutex_t lock3_5;
 pthread_mutex_t lock4;
+pthread_cond_t cond4;
 
 int nrThreads = 0;
 int note4 = 0;
@@ -50,10 +51,8 @@ void *process2_3_synchronised(int process, int thread)
 	
 	if(process == 3 && thread == 2){
 		sem_wait(sem2_in);
-		printf("INAINTE\n");
 		info(BEGIN, process, thread);
 		info(END, process, thread);
-		printf("DUPA\n");
 		sem_post(sem2_out);
 	}
 	
@@ -105,6 +104,7 @@ void *process3_thread_function(void* arg){
 
 void *process4_thread_function(void* arg){
 	TH_STRUCT *ts4 = (TH_STRUCT *)arg;
+	
     	sem_wait(&sem4);
 	info(BEGIN, 4, ts4->id);
 	pthread_mutex_lock(&lock4);
@@ -129,6 +129,33 @@ void *process4_thread_function(void* arg){
 		pthread_mutex_unlock(&lock4);
 	}
 	sem_post(&sem4);
+	
+	/*sem_wait(&sem4);
+	
+	info(BEGIN, 4, ts4->id);
+    	nrThreads++;
+	
+    	pthread_mutex_lock(&lock4);
+    	if(nrThreads == 4)
+    		pthread_cond_broadcast(&cond4);
+    	pthread_mutex_unlock(&lock4);
+        printf("PRINTTTTT %d\n", nrThreads);
+    	pthread_mutex_lock(&lock4);
+    	if (ts4->id == 15) {
+        	while (nrThreads != 4) {
+            		pthread_cond_wait(&cond4, &lock4);
+        	}
+        	info(END, 4, ts4->id);
+        	nrThreads--;
+    	}else{
+    		
+        	info(END, 4, ts4->id);
+    		nrThreads--;
+    	}
+    	pthread_mutex_unlock(&lock4);
+    	
+    	sem_post(&sem4);*/
+    	
     	return NULL;
 }
 
@@ -261,6 +288,10 @@ int main(int argc, char **argv){
         		perror("Could not init the mutex");
         		return -1;
     		}
+    		if(pthread_cond_init(&cond4, NULL) != 0) {
+        		perror("Could not init the cond");
+        		return -1;
+    		}
     		
     		for(int p4i = 1; p4i <= 42; p4i++){
     			ts4[p4i].id = p4i;
@@ -273,6 +304,7 @@ int main(int argc, char **argv){
         		pthread_join(tid4[p4i], NULL);
     		}
     		
+    		pthread_cond_destroy(&cond4);
     		pthread_mutex_destroy(&lock4);
     		sem_destroy(&sem4);
     		
