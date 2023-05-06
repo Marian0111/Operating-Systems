@@ -107,16 +107,13 @@ void *process4_thread_function(void* arg){
 	TH_STRUCT *ts4 = (TH_STRUCT *)arg;
 	
 	sem_wait(&sem4);
-	
 	info(BEGIN, 4, ts4->id);
-    	nrThreads++;
 	
-    	pthread_mutex_lock(&lock4);
-    	if(nrThreads == 4)
-    		pthread_cond_signal(&cond4);
-    	pthread_mutex_unlock(&lock4);
     	pthread_mutex_lock(&lock4);
     	totalThreads++;
+    	nrThreads++;
+    	if(nrThreads == 4)
+    		pthread_cond_broadcast(&cond4);
     	if (ts4->id == 15) {
     		thread15_out = 1;
         	while (nrThreads != 4) {
